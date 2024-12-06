@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>행사 GO! 날씨 GO!</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/fullcalendar/main.min.css">
+  <style>
+    body {
+      font-family: 'Noto Sans KR', sans-serif;
+      background-color: #f4f4f4;
+      margin: 20px;
+    }
+    h1 {
+      text-align: center;
+      color: #333;
+      font-size: 2rem;
+      margin-bottom: 20px;
+    }
+    #popup {
+      position: fixed;
+      left: 50%;
+      top: 50%;
+      transform: translate(-50%, -50%);
+      width: 600px;
+      height: 500px;
+      background-color: white;
+      border-radius: 8px;
+      box-shadow: 0 0 15px rgba(0, 0, 0, 0.2);
+      z-index: 1000;
+      padding: 20px;
+      display: none;
+    }
+    #popup-title {
+      margin-top: 0;
+      color: #333;
+    }
+    #popup-address {
+      font-size: 1rem;
+      color: #555;
+    }
+    #weather-info {
+      margin-top: 15px;
+      font-size: 1rem;
+      color: #333;
+    }
+    #closePopup {
+      background-color: #dc3545;
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      font-size: 1rem;
+      border-radius: 5px;
+      cursor: pointer;
+      margin-top: 15px;
+    }
+    #closePopup:hover {
+      background-color: #c82333;
+    }
+    #map {
+      width: 100%;
+      height: 300px;
+      border-radius: 5px;
+    }
+  </style>
+</head>
+<body>
+  <h1>행사 GO! 날씨 GO!</h1>
+  <div id="calendar"></div>
+
+  <div id="popup">
+    <h3 id="popup-title"></h3>
+    <p id="popup-address"></p>
+    <div id="map"></div>
+    <div id="weather-info"></div>
+    <button id="closePopup">닫기</button>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/fullcalendar/main.min.js"></script>
+  <script src="//dapi.kakao.com/v2/maps/sdk.js?appkey=66bb56bd796e4183ae7906d8b515a0fe&libraries=services"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', async function() {
+      const calendarEl = document.getElementById('calendar');
+      const ps = new kakao.maps.services.Places();
+      const popup = document.getElementById('popup');
+      const popupTitle = document.getElementById('popup-title');
+      const popupAddress = document.getElementById('popup-address');
+      const weatherInfo = document.getElementById('weather-info');
+      const closePopupBtn = document.getElementById('closePopup');
+
+      const calendar = new FullCalendar.Calendar(calendarEl, {
+        initialView: 'dayGridMonth',
+        events: [],
+        eventClick: function(info) {
+          let placeName = info.event.extendedProps.region;
+          if (info.event.extendedProps.contributor && (/^(서울|부산|광주|대구|대전|인천|울산|세종|제주|경기|강원|충북|충남|전북|전남|경북|경남)$/).test(placeName)) {
+            placeName = info.event.extendedProps.contributor.split(',')[0].trim();
+          }
+          if (placeName) {
+            placeName = placeName.trim();
+            searchAndDisplayPlace(placeName, info);
+          }
+        }
+      });
+
+      calendar.render();
+
+      async function fetchEvents() {
+        const serviceKey = '05e92b15-d0c6-4a60-9f1c-7e0aa4596138';
+        let url = `http://api.kcisa.kr/openapi/API_CCA_145/request?serviceKey=${serviceKey}&numOfRows=10&pageNo=1`;
+
+        try {
+          const response = await fetch(url);
+          if (!response.ok) {
+            throw new Error('Network response was not ok');
+          }
+          const responseText = await response.text();
+          
+          const parser = new DOMParser();
+          const xmlDoc = parser.parseFromString(responseText, "application/xml");
+
+          const eventNodes = xmlDoc.getElementsByTagName("item");
+          if (eventNodes.length === 0) {
+            console.warn('데이터가 없습니다. XML 구조를 확인하세요.');
+            return;
+          }
+
+          const events = [];
+          for (let i = 0; i < eventNodes.length; i++) {
+            const eventNode = eventNodes[i];
+            const title = eventNode.getElementsByTagName("TITLE")[0]?.textContent;
+            const period = eventNode.getElementsByTagName("PERIOD")[0]?.textContent;
+            let regionName = eventNode.getElementsByTagName("EVENT_SITE")[0]?.textContent;
+            let contributorName = eventNode.getElementsByTagName("CONTRIBUTOR")[0]?.textContent;
+
+            if (contributorName) {
+              if (contributorName.includes(',')) {
+                contributorName = contributorName.split(',')[0].trim();  // 쉼표를 기준으로 앞쪽 내용만 가져오기
+              }
+              regionName = contributorName;  // 우선적으로 contributorName을 지역명으로 설정
+            } else if (!contributorName && regionName) {
+              // contributor가 없으면 regionName을 그대로 사용
+              regionName = regionName.trim();
+            }
+
+            if (title && period) {
+              const [startDateStr, endDateStr] = period.split("~").map(date => date.trim());
+              if (startDateStr && endDateStr) {
+                const startDate = new Date(startDateStr).toISOString().split("T")[0];
+                const endDate = new Date(endDateStr).toISOString().split("T")[0];
+
+                events.push({
+                  title: title,
+                  start: startDate,
+                  end: endDate,
+                  allDay: true,
+                  region: regionName,
+                  contributor: contributorName
+                });
+              }
+            }
+          }
+
+          calendar.removeAllEvents();
+          calendar.addEventSource(events);
+        } catch (error) {
+          console.error('API 요청 중 오류 발생:', error);
+        }
+      }
+
+      async function searchAndDisplayPlace(placeName, eventInfo) {
+        let originalPlaceName = placeName;
+
+        // 장소명에서 '전시실', '기획전시실' 등 불필요한 정보와 숫자 및 '층'을 제거
+        let simplifiedPlaceName = placeName.replace(/(기획전시실|전시실|층|\d+(st|nd|rd|th)?\s*Floor|\d+\s*)/gi, '').trim();
+
+        ps.keywordSearch(simplifiedPlaceName, function (data, status) {
+          if (status === kakao.maps.services.Status.OK) {
+            const coords = new kakao.maps.LatLng(data[0].y, data[0].x);
+            const address = data[0].road_address_name || data[0].address_name;
+
+            popupTitle.textContent = eventInfo.event.title;
+            popupAddress.innerHTML = `주소: ${address}<br>검색된 장소: ${data[0].place_name}<br>원래 입력된 장소명: ${originalPlaceName}`;
+            popup.style.display = 'block';
+
+            const mapContainer = document.getElementById('map');
+            const mapOption = {
+              center: coords,
+              level: 3
+            };
+            const map = new kakao.maps.Map(mapContainer, mapOption);
+            const marker = new kakao.maps.Marker({
+              position: coords,
+              map: map
+            });
+
+            // 날씨 정보 요청
+            fetchWeather(data[0].y, data[0].x);
+          } else {
+            console.error('장소를 찾을 수 없습니다:', simplifiedPlaceName);
+            // 검색 실패 시 원래 입력된 장소명을 팝업에 그대로 표시
+            popupTitle.textContent = eventInfo.event.title;
+            popupAddress.innerHTML = `원래 입력된 장소명: ${originalPlaceName}`;
+            popup.style.display = 'block';
+          }
+        });
+      }
+
+      async function fetchWeather(lat, lon) {
+        const serviceKey = 'RxFzVpSfDL0s5RTBEO%2FmPqpGYwufWaoa5aODTsTtybSUHHUcr2BY7OgLUIuC8C2NCMD47DRJyD%2FlW3Rz1%2BWCBQ%3D%3D';
+        const baseDate = getBaseDate();
+        const baseTime = getBaseTime();
+        const nx = Math.round(lat); // 위도
+        const ny = Math.round(lon); // 경도
+        const url = `http://apis.data.go.kr/1360000/VilageFcstInfoService_2.0/getVilageFcst?serviceKey=${serviceKey}&numOfRows=10&pageNo=1&base_date=${baseDate}&base_time=${baseTime}&nx=${nx}&ny=${ny}&dataType=XML`;
+
+        try {
+          const response = await fetch(url);
+          if (!response.ok) {
+            throw new Error('Network response was not ok');
+          }
+          const responseText = await response.text();
+          const parser = new DOMParser();
+          const xmlDoc = parser.parseFromString(responseText, "application/xml");
+
+          const items = xmlDoc.getElementsByTagName("item");
+          let temperature = null;
+          let weatherDescription = "";
+
+          for (let i = 0; i < items.length; i++) {
+            const item = items[i];
+            const category = item.getElementsByTagName("category")[0]?.textContent;
+            const fcstValue = item.getElementsByTagName("fcstValue")[0]?.textContent;
+
+            if (category === "T3H") {
+              temperature = fcstValue;
+            }
+            if (category === "SKY") {
+              weatherDescription = fcstValue === "1" ? "맑음" : fcstValue === "3" ? "구름 많음" : "흐림";
+            }
+          }
+
+          if (temperature !== null && weatherDescription !== "") {
+            weatherInfo.innerHTML = `현재 날씨: ${weatherDescription}, 온도: ${temperature}°C`;
+          } else {
+            weatherInfo.innerHTML = '날씨 정보를 가져오는 중 오류가 발생했습니다.';
+          }
+        } catch (error) {
+          console.error('날씨 정보를 가져오는 중 오류 발생:', error);
+          weatherInfo.innerHTML = '날씨 정보를 가져오는 중 오류가 발생했습니다.';
+        }
+      }
+
+      function getBaseDate() {
+        const today = new Date();
+        const yyyy = today.getFullYear().toString();
+        const mm = (today.getMonth() + 1).toString().padStart(2, '0');
+        const dd = today.getDate().toString().padStart(2, '0');
+        return `${yyyy}${mm}${dd}`;
+      }
+
+      function getBaseTime() {
+        const now = new Date();
+        let hours = now.getHours();
+        if (hours < 2) {
+          hours = 23; // 새벽에 요청 시, 전날의 마지막 데이터 사용
+        } else {
+          hours -= hours % 3; // 3시간 간격으로 요청 가능
+        }
+        return `${hours.toString().padStart(2, '0')}00`;
+      }
+
+      closePopupBtn.addEventListener('click', function() {
+        popup.style.display = 'none';
+      });
+
+      fetchEvents();
+    });
+  </script>
+</body>
+</html>
