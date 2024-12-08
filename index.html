@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>행사 GO! 날씨 GO!</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/fullcalendar/main.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/fullcalendar/main.min.js"></script>
+  <script src="//dapi.kakao.com/v2/maps/sdk.js?appkey=66bb56bd796e4183ae7906d8b515a0fe&libraries=services"></script>
+</head>
+<body>
+  <h1>행사 GO! 날씨 GO!</h1>
+  <div id="calendar"></div>
+
+  <!-- 팝업 -->
+  <div id="popup" style="display: none; position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%);
+      width: 600px; height: 600px; background: white; border: 1px solid #ccc; border-radius: 8px; 
+      box-shadow: 0 0 15px rgba(0, 0, 0, 0.2); padding: 20px; z-index: 1000;">
+    <div id="popup-content">
+      <h3 id="popup-title">팝업 제목</h3>
+      <p id="popup-address">주소 정보</p>
+      <p id="popup-weather">날씨 정보</p> 
+      <div id="map" style="width: 100%; height: 300px; border-radius: 5px;"></div>
+    </div>
+    <button id="closePopup" style="margin-top: 10px; background-color: #dc3545; color: white; 
+        border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer;">닫기</button>
+  </div>
+
+  <!-- Scripts -->
+  <script src="js/fetchEvents.js"></script>
+  <script src="js/kakaoAndGoogle.js"></script>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', function () {
+      const calendarEl = document.getElementById('calendar');
+      const popupEl = document.getElementById('popup');
+      const closePopupBtn = document.getElementById('closePopup');
+
+      // 팝업 닫기 버튼 이벤트 리스너
+      closePopupBtn.addEventListener('click', () => {
+        closePopup("popup");
+      });
+
+      // FullCalendar 초기화
+      const calendar = new FullCalendar.Calendar(calendarEl, {
+        initialView: 'dayGridMonth',
+        events: [], // fetchEvents.js에서 데이터 로드
+        eventClick: function (info) {
+          // 기본 URL 이동 방지
+          info.jsEvent.preventDefault();
+
+          // 이벤트 정보 가져오기
+          const eventSite = info.event.extendedProps.contributor || info.event.extendedProps.event_site;
+          const eventTitle = info.event.title || "제목 없음"
+          const eventURL = info.event.url || null;
+
+          // 팝업 초기화
+          const popupContent = `
+              <h3>${escapeHtml(eventTitle)}</h3>
+              <p><strong>장소:</strong> ${escapeHtml(eventSite)}</p>
+              ${eventURL ? `<p><strong>행사 링크:</strong> <a href="${eventURL}" target="_blank">클릭👆</a></p>` : ''}
+              <p id="popup-weather"><strong></strong></p>
+              <div id="map" style="width: 100%; height: 300px; border-radius: 5px;"></div>
+          `;
+          popupEl.innerHTML = popupContent;
+          popupEl.style.display = "block";
+
+          // 지도와 날씨 정보 표시
+          displayPlaceOnMap(eventSite, "popup", "map");
+        },
+      });
+
+      calendar.render(); // 캘린더 렌더링
+
+      // 이벤트 데이터 가져오기
+      fetchEvents(calendar);
+    });
+  </script>
+</body>
+</html>
