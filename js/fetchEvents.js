@@ -1,5 +1,5 @@
 async function fetchEvents(calendar) {
-  const apiUrl = 'http://api.kcisa.kr/openapi/API_CCA_145/request?serviceKey=05e92b15-d0c6-4a60-9f1c-7e0aa4596138&numOfRows=10&pageNo=1';
+  const apiUrl = 'https://api.kcisa.kr/openapi/API_CCA_145/request?serviceKey=05e92b15-d0c6-4a60-9f1c-7e0aa4596138&numOfRows=10&pageNo=1';
 
   try {
     const response = await fetch(apiUrl);
