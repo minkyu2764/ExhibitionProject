@@ -1,9 +1,20 @@
 async function fetchEvents(calendar) {
-  const proxyUrl = "https://cors-anywhere.herokuapp.com/";
-  const apiUrl = `${proxyUrl}http://api.kcisa.kr/openapi/API_CCA_145/request?serviceKey=6e774ace-4f02-4524-9b96-5960502c3754&numOfRows=20&pageNo=1`;
+  const apiUrl = "http://api.kcisa.kr/openapi/API_CCA_145/request?serviceKey=6e774ace-4f02-4524-9b96-5960502c3754&numOfRows=20&pageNo=1";
 
   try {
-    const response = await fetch(apiUrl);
+    const response = await fetch(apiUrl, {
+      method: "GET",
+      headers: {
+        "Accept": "application/xml", // XML 데이터 요청
+        "Origin": "https://your-github-pages-url", // GitHub Pages의 도메인 추가
+        "x-requested-with": "XMLHttpRequest", // 요청 방식 명시
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error(`API 요청 실패: ${response.status}`);
+    }
+
     const xmlText = await response.text();
 
     // XML -> JSON 변환
@@ -18,7 +29,7 @@ async function fetchEvents(calendar) {
       const url = item.getElementsByTagName("URL")[0]?.textContent || null;
       const eventSite = item.getElementsByTagName("EVENT_SITE")[0]?.textContent || "지역 정보 없음";
       const period = item.getElementsByTagName("PERIOD")[0]?.textContent || null;
-      const contributor = item.getElementsByTagName("CONTRIBUTOR")[0]?.textContent || item.getElementsByTagName("EVENT_SITE")[0]?.textContent
+      const contributor = item.getElementsByTagName("CONTRIBUTOR")[0]?.textContent || eventSite;
 
       if (period) {
         const [startDate, endDate] = period.split("~").map(date => date.trim());
