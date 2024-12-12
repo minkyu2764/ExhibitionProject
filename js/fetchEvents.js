@@ -5,9 +5,9 @@ async function fetchEvents(calendar) {
     const response = await fetch(apiUrl, {
       method: "GET",
       headers: {
-        "Accept": "application/xml", // XML 데이터 요청
-        "Origin": "https://your-github-pages-url", // GitHub Pages의 도메인 추가
-        "x-requested-with": "XMLHttpRequest", // 요청 방식 명시
+        "Accept": "application/xml",
+        "Origin": "https://username.github.io/repository-name",
+        "x-requested-with": "XMLHttpRequest",
       },
     });
 
@@ -17,7 +17,7 @@ async function fetchEvents(calendar) {
 
     const xmlText = await response.text();
 
-    // XML -> JSON 변환
+    // XML → JSON 변환
     const parser = new DOMParser();
     const xmlDoc = parser.parseFromString(xmlText, "application/xml");
     const items = xmlDoc.getElementsByTagName("item");
@@ -47,7 +47,10 @@ async function fetchEvents(calendar) {
       }
     }
 
-    console.log("캘린더에 추가될 이벤트:", events);
+    // JSON 형식의 이벤트 데이터를 출력
+    console.log("JSON 데이터:", JSON.stringify(events, null, 2));
+
+    // 캘린더에 이벤트 추가
     calendar.addEventSource(events);
   } catch (error) {
     console.error("API 요청 중 오류 발생:", error);
