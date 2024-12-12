@@ -1,6 +1,6 @@
 async function fetchEvents(calendar) {
   const proxyUrl = "https://cors-anywhere.herokuapp.com/";
-  const apiUrl = `${proxyUrl}https://api.kcisa.kr/openapi/API_CCA_145/request?serviceKey=05e92b15-d0c6-4a60-9f1c-7e0aa4596138&numOfRows=10&pageNo=1`;
+  const apiUrl = `${proxyUrl}http://api.kcisa.kr/openapi/API_CCA_145/request?serviceKey=6e774ace-4f02-4524-9b96-5960502c3754&numOfRows=20&pageNo=1`;
 
   try {
     const response = await fetch(apiUrl);
