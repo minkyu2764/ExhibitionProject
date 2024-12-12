@@ -1,6 +1,4 @@
 async function fetchEvents(calendar) {
-
-  
   const proxyUrl = "https://cors-anywhere.herokuapp.com/";
   const apiUrl = `${proxyUrl}http://api.kcisa.kr/openapi/API_CCA_145/request?serviceKey=6e774ace-4f02-4524-9b96-5960502c3754&numOfRows=20&pageNo=1`;
 
@@ -9,6 +7,8 @@ async function fetchEvents(calendar) {
       method: "GET",
       headers: {
         "Accept": "application/xml",
+        "Origin": "https://minkyu2764.github.io/ExhibitionProject", // GitHub Pages URL
+        "x-requested-with": "XMLHttpRequest", // 요청 방식 명시
       },
     });
 
