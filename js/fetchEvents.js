@@ -6,7 +6,7 @@ async function fetchEvents(calendar) {
       method: "GET",
       headers: {
         "Accept": "application/xml",
-        "Origin": "https://username.github.io/repository-name",
+        "Origin": "https://minkyu2764.github.io/ExhibitionProject",
         "x-requested-with": "XMLHttpRequest",
       },
     });
